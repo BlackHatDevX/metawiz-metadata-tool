@@ -2,6 +2,15 @@
 
 METAWIZ is a web application designed to help you easily view, edit, and remove metadata from your files. It prioritizes your privacy by processing all files directly in your browser, ensuring that your data never leaves your computer.
 
+## TOOL PREVIEW
+
+
+
+https://github.com/user-attachments/assets/0ef9b34e-eb96-4194-be0a-53927f016aab
+
+
+
+
 ## Features
 
 *   **View Metadata:** Upload a file and see all its embedded metadata, including EXIF, IPTC, XMP, and ICC profiles.
