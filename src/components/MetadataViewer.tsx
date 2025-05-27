@@ -1,5 +1,5 @@
-'use client';
-import { useMemo } from 'react';
+"use client";
+import { useMemo } from "react";
 
 interface MetadataViewerProps {
   metadata: Record<string, any>;
@@ -7,51 +7,89 @@ interface MetadataViewerProps {
 
 function formatMetadataValue(value: any): string {
   if (value === null || value === undefined) {
-    return '';
+    return "";
   }
-  
-  if (typeof value === 'object') {
+
+  if (typeof value === "object") {
     if (value instanceof Date || (value._ctor && value.year)) {
       const date = new Date(value);
-      return isNaN(date.getTime()) ? '' : date.toLocaleString();
+      return isNaN(date.getTime()) ? "" : date.toLocaleString();
     }
-    
+
     if (Array.isArray(value)) {
-      return value.map(formatMetadataValue).join(', ');
+      return value.map(formatMetadataValue).join(", ");
     }
-    
+
     return JSON.stringify(value);
   }
-  
+
   return String(value);
 }
 
-function extractGpsCoordinates(metadata: Record<string, any>): { lat: number; lng: number } | null {
+function extractGpsCoordinates(
+  metadata: Record<string, any>
+): { lat: number; lng: number } | null {
   if (metadata.GPSLatitude && metadata.GPSLongitude) {
     try {
       let lat = parseFloat(String(metadata.GPSLatitude));
       let lng = parseFloat(String(metadata.GPSLongitude));
-      
-      if (metadata.GPSLatitudeRef === 'S') lat = -lat;
-      if (metadata.GPSLongitudeRef === 'W') lng = -lng;
-      
+
+      // if coordinate is negative, it should be S for latitude and W for longitude
+      if (lat < 0) {
+        metadata.GPSLatitudeRef = "S";
+        lat = Math.abs(lat);
+      } else {
+        metadata.GPSLatitudeRef = "N";
+      }
+
+      if (lng < 0) {
+        metadata.GPSLongitudeRef = "W";
+        lng = Math.abs(lng);
+      } else {
+        metadata.GPSLongitudeRef = "E";
+      }
+
+      if (metadata.GPSLatitudeRef === "S") lat = -lat;
+      if (metadata.GPSLongitudeRef === "W") lng = -lng;
+
       return { lat, lng };
     } catch (e) {
-      console.error('Failed to parse GPS coordinates:', e);
+      console.error("Failed to parse GPS coordinates:", e);
     }
   }
 
   if (metadata.GPSPosition) {
     try {
-      const gpsMatch = String(metadata.GPSPosition).match(/([0-9.-]+)[,\s]+([0-9.-]+)/);
+      const gpsMatch = String(metadata.GPSPosition).match(
+        /([0-9.-]+)[,\s]+([0-9.-]+)/
+      );
       if (gpsMatch && gpsMatch.length >= 3) {
-        return {
-          lat: parseFloat(gpsMatch[1]),
-          lng: parseFloat(gpsMatch[2])
-        };
+        let lat = parseFloat(gpsMatch[1]);
+        let lng = parseFloat(gpsMatch[2]);
+
+        // Handle cardinal directions for GPSPosition format as well
+        if (lat < 0) {
+          metadata.GPSLatitudeRef = "S";
+          lat = Math.abs(lat);
+        } else {
+          metadata.GPSLatitudeRef = "N";
+        }
+
+        if (lng < 0) {
+          metadata.GPSLongitudeRef = "W";
+          lng = Math.abs(lng);
+        } else {
+          metadata.GPSLongitudeRef = "E";
+        }
+
+        // Apply the ref
+        if (metadata.GPSLatitudeRef === "S") lat = -lat;
+        if (metadata.GPSLongitudeRef === "W") lng = -lng;
+
+        return { lat, lng };
       }
     } catch (e) {
-      console.error('Failed to parse GPS position:', e);
+      console.error("Failed to parse GPS position:", e);
     }
   }
 
@@ -59,16 +97,31 @@ function extractGpsCoordinates(metadata: Record<string, any>): { lat: number; ln
 }
 
 export function MetadataViewer({ metadata = {} }: MetadataViewerProps) {
-  const gpsCoordinates = useMemo(() => extractGpsCoordinates(metadata), [metadata]);
+  const gpsCoordinates = useMemo(
+    () => extractGpsCoordinates(metadata),
+    [metadata]
+  );
 
   if (!metadata || Object.keys(metadata).length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="flex flex-col items-center space-y-3">
-          <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-12 h-12 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
-          <p className="text-gray-500 text-lg">No metadata found for this file</p>
+          <p className="text-gray-500 text-lg">
+            No metadata found for this file
+          </p>
         </div>
       </div>
     );
@@ -76,34 +129,42 @@ export function MetadataViewer({ metadata = {} }: MetadataViewerProps) {
 
   const formattedMetadata = Object.entries(metadata)
     .filter(([key, value]) => {
-      // Filter out specific fields
-      if (key === 'ExifToolVersion' || 
-          key === 'Directory' || 
-          key === 'SourceFile' || 
-          key === 'Error' ||
-          key === 'FilePermissions' ||
-          key === 'Creator' ||
-          key === 'Linearized' ||
-          key.startsWith('_')) {
+      // filter these specific fields
+      if (
+        key === "ExifToolVersion" ||
+        key === "Directory" ||
+        key === "SourceFile" ||
+        key === "Error" ||
+        key === "FilePermissions" ||
+        key === "Creator" ||
+        key === "Linearized" ||
+        key.startsWith("_")
+      ) {
         return false;
       }
 
-
-      if (key === 'FileTypeExtension' || key === 'FileType' || key === 'MIMEType') {
-        if (key !== 'MIMEType') return false;
+      if (
+        key === "FileTypeExtension" ||
+        key === "FileType" ||
+        key === "MIMEType"
+      ) {
+        if (key !== "MIMEType") return false;
       }
 
       const formattedValue = formatMetadataValue(value);
-      if (formattedValue === 'Invalid Date' || formattedValue === '') {
+      if (formattedValue === "Invalid Date" || formattedValue === "") {
         return false;
       }
 
       return true;
     })
-    .reduce((acc, [key, value]) => ({
-      ...acc,
-      [key]: formatMetadataValue(value)
-    }), {} as Record<string, string>);
+    .reduce(
+      (acc, [key, value]) => ({
+        ...acc,
+        [key]: formatMetadataValue(value),
+      }),
+      {} as Record<string, string>
+    );
 
   return (
     <div>
@@ -122,7 +183,7 @@ export function MetadataViewer({ metadata = {} }: MetadataViewerProps) {
             </div>
           </div>
           <div className="text-right mt-1">
-            <a 
+            <a
               href={`https://www.google.com/maps/search/?api=1&query=${gpsCoordinates.lat},${gpsCoordinates.lng}`}
               target="_blank"
               rel="noreferrer"
@@ -163,4 +224,4 @@ export function MetadataViewer({ metadata = {} }: MetadataViewerProps) {
       </div>
     </div>
   );
-} 
+}
